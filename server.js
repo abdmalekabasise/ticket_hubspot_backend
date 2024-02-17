@@ -1,11 +1,16 @@
 const express = require('express') 
 const app = express()
 const port = 3002
-const puppeteer = require("puppeteer");
+const puppeteer = require('puppeteer-core');
 const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
-
+const AUTH = 'brd-customer-hl_0d698af6-zone-scraping_browser:7qhc0i62zdnu';
+const SBR_WS_ENDPOINT = `wss://${AUTH}@brd.superproxy.io:9222`;
+const http = require('http');
+const axios = require('axios-https-proxy-fix');
+const cheerio = require('cheerio');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 
 app.use(bodyParser.json());
@@ -198,52 +203,85 @@ app.get('/getEventBySearchStubHUb/:query',async (req, res) => {
 
 });
 
-app.get('/stubhubSearch/:query',async (req, res) => {
+app.get('/test2/:query', async (req, res) => {
+  try {
+    const query = req.params.query;
+    const replacedString = query.replace(/ /g, "%20");
 
-  const query=req.params.query;
-  const replacedString = query.replace(/ /g, "%20");
-
-
-
-  var sectionNames = []; // Increased timeout to 60 seconds
-do{
-
-  const browser = await puppeteer.launch({
-    headless:false,
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath(),
-  });
-  const page = await browser.newPage();
-  await page.goto(`https://www.stubhub.com/search?q=${replacedString}&sellSearch=false`);
-  await page.waitForTimeout(10000);
-
-  const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul/li';
-  sectionNames = await page.$x(xpathExpression)
-  console.log(sectionNames);
-  if (sectionNames.length > 0) {
-    const hrefs = [];
-    for (const sectionName of sectionNames) {
-      const aTag = await sectionName.$('a');
-      if (aTag) {
-        const href = await aTag.evaluate(element => element.getAttribute('href'));
-        hrefs.push(href);
+    let sectionNames = [];
+    do {
+      const browser = await puppeteer.connect({
+        browserWSEndpoint: SBR_WS_ENDPOINT,
+      });
+      const page = await browser.newPage();
+      try {
+        await page.goto(`https://www.stubhub.com/search?q=${replacedString}&sellSearch=false`);
+      } catch (error) {
+        console.error('Error navigating to page:', error);
+        await browser.close();
+        return res.status(500).json({ error: 'Internal Server Error' });
       }
-    }
-    await browser.close();
+      await page.waitForTimeout(15000);
 
-   return res.json(hrefs);
-  }else{
-    await browser.close();
-
+      const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul/li';
+      sectionNames = await page.$x(xpathExpression);
+      console.log(sectionNames);
+      if (sectionNames.length > 0) {
+        const hrefs = [];
+        for (const sectionName of sectionNames) {
+          const aTag = await sectionName.$('a');
+          if (aTag) {
+            const href = await aTag.evaluate(element => element.getAttribute('href'));
+            hrefs.push(href);
+          }
+        }
+        await browser.close();
+        return res.json(hrefs);
+      } else {
+        await browser.close();
+      }
+    } while (sectionNames.length === 0);
+  } catch (error) {
+    console.error('Unhandled error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
-}while(sectionNames.length==0)
-
-  
- // console.log(sectionName);
-  //  await browser.close();
 });
+
+
+app.get('/stubhubSearch/:query', async (req, res) => {
+  const query = req.params.query;
+  const replacedString = query.replace(/ /g, "%20");
+  try {
+    const response = await axios.get(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`, {
+      rejectUnauthorized: false,
+      proxy: {
+        host: 'brd.superproxy.io',
+        port: '22225',
+        auth: {
+          username: 'brd-customer-hl_0d698af6-zone-unblocker',
+          password: '4rzyw981zlb7'
+        }
+      }
+    });
+
+    const html = response.data;
+    const $ = cheerio.load(html);
+    console.log($('script').get()[9].attribs['id']);
+
+    const toJson = JSON.parse($('script').get()[9].children[0].data);
+     // Filter items to extract only the URLs
+     const urls = toJson.eventGrids['2'].items.map(item => item.url);
+
+    res.json({
+      succes:true,
+      data : urls
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
