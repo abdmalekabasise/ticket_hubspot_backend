@@ -4,6 +4,7 @@ const port = 3002
 const puppeteer = require("puppeteer");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+require("dotenv").config();
 
 
 
@@ -207,8 +208,18 @@ app.get('/stubhubSearch/:query',async (req, res) => {
   var sectionNames = []; // Increased timeout to 60 seconds
 do{
 
-  const browser = await puppeteer.launch();
-
+  const browser = await puppeteer.launch({
+    args: [
+      "--disable-setuid-sandbox",
+      "--no-sandbox",
+      "--single-process",
+      "--no-zygote",
+    ],
+    executablePath:
+      process.env.NODE_ENV === "production"
+        ? process.env.PUPPETEER_EXECUTABLE_PATH
+        : puppeteer.executablePath(),
+  });
   const page = await browser.newPage();
   await page.goto(`https://www.stubhub.com/search?q=${replacedString}&sellSearch=false`);
   await page.waitForTimeout(10000);
