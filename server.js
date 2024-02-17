@@ -1,4 +1,4 @@
-const express = require('express') 
+const express = require('express')
 const app = express()
 const port = 3002
 const puppeteer = require('puppeteer-core');
@@ -17,29 +17,29 @@ app.use(bodyParser.json());
 app.use(cors());
 
 
-const scrapeInfiniteScrollItems = async (page, itemTargetCount,parentId,elementClass) => {
+const scrapeInfiniteScrollItems = async (page, itemTargetCount, parentId, elementClass) => {
   let items = [];
 
-  if(itemTargetCount<20){
+  if (itemTargetCount < 20) {
     items = await page.evaluate((className) => {
       const items = Array.from(document.querySelectorAll(`.${className}`));
       return items.map((item) => item.innerText);
-    },elementClass );
-  }else{
+    }, elementClass);
+  } else {
     while (itemTargetCount > items.length) {
       console.log('ok');
       console.log(items);
       items = await page.evaluate((className) => {
         const items = Array.from(document.querySelectorAll(`.${className}`));
         return items.map((item) => item.innerText);
-      },elementClass );
-  
+      }, elementClass);
+
       previousHeight = await page.evaluate((selector) => {
         const scrollableDiv = document.querySelector(selector);
         scrollableDiv.scrollTop = scrollableDiv.scrollHeight;
         return scrollableDiv.scrollHeight;
       }, parentId);
-  
+
       await page.waitForFunction(
         (selector, previousHeight) => {
           const scrollableDiv = document.querySelector(selector);
@@ -49,12 +49,12 @@ const scrapeInfiniteScrollItems = async (page, itemTargetCount,parentId,elementC
         parentId,
         previousHeight
       );
-  
+
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 
- 
+
 
   return items;
 };
@@ -65,140 +65,140 @@ const getParentId = async (page, childId) => {
     const childElement = document.getElementById("stubhub-event-detail-listings-grid");
     if (childElement) {
       var parentNode = childElement.parentElement;
-      
+
       if (parentNode) {
 
         var className = parentNode.className.replace(/ /g, '.');
-       
-        return  '.'+className;
-      
+
+        return '.' + className;
+
       }
     }
     return null;
-   
-   // return null;
+
+    // return null;
   }, childId);
 };
 
 app.post('/stubhubTickets', (req, res) => {
-  const eventURL=req.body.url;
+  const eventURL = req.body.url;
   (async () => {
-      const browser = await puppeteer.launch({
-        headless: false,
-      });
-    
-      const page = await browser.newPage();
-      await page.goto(`${eventURL}`);
-      const xpathExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[2]/div/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]';
-      const countExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[1]/div/div[1]/div';
+    const browser = await puppeteer.launch({
+      headless: false,
+    });
 
-      const listingCount = await page.$x(countExpression);
-      console.log(listingCount);
-      const sectionName = await page.$x(xpathExpression);
+    const page = await browser.newPage();
+    await page.goto(`${eventURL}`);
+    const xpathExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[2]/div/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]';
+    const countExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[1]/div/div[1]/div';
+
+    const listingCount = await page.$x(countExpression);
+    console.log(listingCount);
+    const sectionName = await page.$x(xpathExpression);
 
 
-      const listingCountClass = await listingCount[0].evaluate(element => {
-        const classes = element.textContent;
-        if (classes) {
-          const classList = classes.split(' ');
-          return classList[0]; // Return the first class
-        }
-        return null;
-      });
+    const listingCountClass = await listingCount[0].evaluate(element => {
+      const classes = element.textContent;
+      if (classes) {
+        const classList = classes.split(' ');
+        return classList[0]; // Return the first class
+      }
+      return null;
+    });
 
-      console.log(parseInt(listingCountClass));
-        // Access the class attribute of the element
-        const sectionNameClass = await sectionName[0].evaluate(element => {
-          const classes = element.getAttribute('class');
-          if (classes) {
-            const classList = classes.split(' ');
-            return classList[0]; // Return the first class
-          }
-          return null;
-        });
-       
-       
-        const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
-        console.log(parentId);
-        const items = await scrapeInfiniteScrollItems(page, parseInt(listingCountClass),parentId,sectionNameClass);
-        // Use the class in your items query
-        
-    
-        console.log(items);
-        res.send({parentId:parentId , items:items})
-    
-      
-     
+    console.log(parseInt(listingCountClass));
+    // Access the class attribute of the element
+    const sectionNameClass = await sectionName[0].evaluate(element => {
+      const classes = element.getAttribute('class');
+      if (classes) {
+        const classList = classes.split(' ');
+        return classList[0]; // Return the first class
+      }
+      return null;
+    });
 
-     // fs.writeFileSync("items.json", JSON.stringify(items));
-   
-      await browser.close();
-    })();
+
+    const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
+    console.log(parentId);
+    const items = await scrapeInfiniteScrollItems(page, parseInt(listingCountClass), parentId, sectionNameClass);
+    // Use the class in your items query
+
+
+    console.log(items);
+    res.send({ parentId: parentId, items: items })
+
+
+
+
+    // fs.writeFileSync("items.json", JSON.stringify(items));
+
+    await browser.close();
+  })();
 
 
 });
 
-app.get('/getEventBySearchStubHUb/:query',async (req, res) => {
-  const query=req.params.query;
+app.get('/getEventBySearchStubHUb/:query', async (req, res) => {
+  const query = req.params.query;
   const replacedString = query.replace(/ /g, "%20");
 
-      const browser = await puppeteer.launch({
-        headless: true,
-      });
-    
-      const page = await browser.newPage();
-      await page.goto(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`);
-      try {
+  const browser = await puppeteer.launch({
+    headless: true,
+  });
 
-        await page.waitForTimeout(8000);
+  const page = await browser.newPage();
+  await page.goto(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`);
+  try {
 
-        //*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul
-        const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
+    await page.waitForTimeout(8000);
 
-        var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
+    //*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul
+    const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
 
-        console.log(sectionName);
-        if(sectionName.length==0){
-          console.log('ok');
-          sectionName = await page.$x(xpathExpression);
-        }
-      
-        const sectionNameClass = await sectionName[0].evaluate(element => {
-          const classes = element.getAttribute('class');
-          if (classes) {
-            const classList = classes.split(' ');
-            return classes; // Return the first class
-          }
-          return null;
-        });
-        res.json(sectionNameClass)
-        await browser.close();
-      } catch (error) {
+    var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
 
-        console.error("Error while waiting for XPath:", error);
-        const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
+    console.log(sectionName);
+    if (sectionName.length == 0) {
+      console.log('ok');
+      sectionName = await page.$x(xpathExpression);
+    }
 
-        var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
-
-        console.log(sectionName);
+    const sectionNameClass = await sectionName[0].evaluate(element => {
+      const classes = element.getAttribute('class');
+      if (classes) {
+        const classList = classes.split(' ');
+        return classes; // Return the first class
       }
-      
+      return null;
+    });
+    res.json(sectionNameClass)
+    await browser.close();
+  } catch (error) {
 
-     
-       // const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
-  
-      //  const items = await scrapeInfiniteScrollItems(page, 1,"",sectionNameClass);
-        // Use the class in your items query
-        
-    
-     //  res.send({parentId:parentId , items:items})
-    
-      
-     
+    console.error("Error while waiting for XPath:", error);
+    const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
 
-     // fs.writeFileSync("items.json", JSON.stringify(items));
-   
-     // await browser.close();
+    var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
+
+    console.log(sectionName);
+  }
+
+
+
+  // const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
+
+  //  const items = await scrapeInfiniteScrollItems(page, 1,"",sectionNameClass);
+  // Use the class in your items query
+
+
+  //  res.send({parentId:parentId , items:items})
+
+
+
+
+  // fs.writeFileSync("items.json", JSON.stringify(items));
+
+  // await browser.close();
 
 
 });
@@ -269,18 +269,87 @@ app.get('/stubhubSearch/:query', async (req, res) => {
     console.log($('script').get()[9].attribs['id']);
 
     const toJson = JSON.parse($('script').get()[9].children[0].data);
-     // Filter items to extract only the URLs
-     const urls = toJson.eventGrids['2'].items.map(item => item.url);
+    // Filter items to extract only the URLs
+    const urls = toJson.eventGrids['2'].items.map(item => item.url);
 
     res.json({
-      succes:true,
-      data : urls
+      succes: true,
+      data: urls
     });
   } catch (error) {
     console.error(error);
     res.status(500).send('Internal Server Error');
   }
 });
+app.get('/stubhubTickets/:eventId', (req, res) => {
+  const eventId = req.params.eventId;
+  (async () => {
+    const browser = await puppeteer.launch({
+
+    });
+
+    const page = await browser.newPage();
+    await page.goto(`https://www.stubhub.com/atlanta-hawks-atlanta-tickets-2-2-2024/event/${eventId}/?quantity=2`);
+
+    const items = await scrapeInfiniteScrollItems(page, 500);
+    console.log(items.length);
+    // fs.writeFileSync("items.json", JSON.stringify(items));
+    res.send(items)
+    await browser.close();
+  })();
+
+
+});
+app.get('/eventsbyequipe/:id', async (req, res) => {
+  try {
+    const equipe = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${equipe}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  } catch {
+    const equipe = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${equipe}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  }
+
+});
+app.get('/performers/:name', async (req, res) => {
+  const name = req.params.name;
+
+  console.log(name);
+  let page = 1;
+  let performers = [];
+  let total = 0;
+  currentFetchs = 50;
+  const response = await axios.get(`https://api.seatgeek.com/2/performers?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${name}&per_page=50&page=${page}`);
+  performers = response.data.performers;
+  total = response.data.meta.total;
+  page = 2;
+  while (currentFetchs < total) {
+    page += 1;
+    let api = await axios.get(`https://api.seatgeek.com/2/performers?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${name}&per_page=50&page=${page}`);
+    performers = performers.concat(api.data.performers);
+    currentFetchs += 50;
+  }
+  const filteredPerformers = performers.filter(performer => performer.divisions !== null);
+  const sortedPerformers = filteredPerformers.sort((a, b) => {
+    const nameA = a.name.toUpperCase(); // Convert to uppercase to ensure case-insensitive sorting
+    const nameB = b.name.toUpperCase();
+
+    if (nameA < nameB) {
+      return -1; // Return a negative value for ascending order
+    } else if (nameA > nameB) {
+      return 1; // Return a positive value for ascending order
+    } else {
+      return 0; // Names are equal
+    }
+  });
+  return res.json({ performers: sortedPerformers, length: filteredPerformers.length });
+
+
+
+})
 
 
 app.listen(port, () => {
