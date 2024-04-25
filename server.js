@@ -1,4 +1,4 @@
-const express = require('express') 
+const express = require('express')
 const app = express()
 const port = 3002
 const puppeteer = require('puppeteer-core');
@@ -17,29 +17,29 @@ app.use(bodyParser.json());
 app.use(cors());
 
 
-const scrapeInfiniteScrollItems = async (page, itemTargetCount,parentId,elementClass) => {
+const scrapeInfiniteScrollItems = async (page, itemTargetCount, parentId, elementClass) => {
   let items = [];
 
-  if(itemTargetCount<20){
+  if (itemTargetCount < 20) {
     items = await page.evaluate((className) => {
       const items = Array.from(document.querySelectorAll(`.${className}`));
       return items.map((item) => item.innerText);
-    },elementClass );
-  }else{
+    }, elementClass);
+  } else {
     while (itemTargetCount > items.length) {
       console.log('ok');
       console.log(items);
       items = await page.evaluate((className) => {
         const items = Array.from(document.querySelectorAll(`.${className}`));
         return items.map((item) => item.innerText);
-      },elementClass );
-  
+      }, elementClass);
+
       previousHeight = await page.evaluate((selector) => {
         const scrollableDiv = document.querySelector(selector);
         scrollableDiv.scrollTop = scrollableDiv.scrollHeight;
         return scrollableDiv.scrollHeight;
       }, parentId);
-  
+
       await page.waitForFunction(
         (selector, previousHeight) => {
           const scrollableDiv = document.querySelector(selector);
@@ -49,12 +49,12 @@ const scrapeInfiniteScrollItems = async (page, itemTargetCount,parentId,elementC
         parentId,
         previousHeight
       );
-  
+
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
 
- 
+
 
   return items;
 };
@@ -65,140 +65,140 @@ const getParentId = async (page, childId) => {
     const childElement = document.getElementById("stubhub-event-detail-listings-grid");
     if (childElement) {
       var parentNode = childElement.parentElement;
-      
+
       if (parentNode) {
 
         var className = parentNode.className.replace(/ /g, '.');
-       
-        return  '.'+className;
-      
+
+        return '.' + className;
+
       }
     }
     return null;
-   
-   // return null;
+
+    // return null;
   }, childId);
 };
 
 app.post('/stubhubTickets', (req, res) => {
-  const eventURL=req.body.url;
+  const eventURL = req.body.url;
   (async () => {
-      const browser = await puppeteer.launch({
-        headless: false,
-      });
-    
-      const page = await browser.newPage();
-      await page.goto(`${eventURL}`);
-      const xpathExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[2]/div/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]';
-      const countExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[1]/div/div[1]/div';
+    const browser = await puppeteer.launch({
+      headless: false,
+    });
 
-      const listingCount = await page.$x(countExpression);
-      console.log(listingCount);
-      const sectionName = await page.$x(xpathExpression);
+    const page = await browser.newPage();
+    await page.goto(`${eventURL}`);
+    const xpathExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[2]/div/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]';
+    const countExpression = '//*[@id="stubhub-event-detail-listings-grid"]/div[1]/div/div[1]/div';
+
+    const listingCount = await page.$x(countExpression);
+    console.log(listingCount);
+    const sectionName = await page.$x(xpathExpression);
 
 
-      const listingCountClass = await listingCount[0].evaluate(element => {
-        const classes = element.textContent;
-        if (classes) {
-          const classList = classes.split(' ');
-          return classList[0]; // Return the first class
-        }
-        return null;
-      });
+    const listingCountClass = await listingCount[0].evaluate(element => {
+      const classes = element.textContent;
+      if (classes) {
+        const classList = classes.split(' ');
+        return classList[0]; // Return the first class
+      }
+      return null;
+    });
 
-      console.log(parseInt(listingCountClass));
-        // Access the class attribute of the element
-        const sectionNameClass = await sectionName[0].evaluate(element => {
-          const classes = element.getAttribute('class');
-          if (classes) {
-            const classList = classes.split(' ');
-            return classList[0]; // Return the first class
-          }
-          return null;
-        });
-       
-       
-        const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
-        console.log(parentId);
-        const items = await scrapeInfiniteScrollItems(page, parseInt(listingCountClass),parentId,sectionNameClass);
-        // Use the class in your items query
-        
-    
-        console.log(items);
-        res.send({parentId:parentId , items:items})
-    
-      
-     
+    console.log(parseInt(listingCountClass));
+    // Access the class attribute of the element
+    const sectionNameClass = await sectionName[0].evaluate(element => {
+      const classes = element.getAttribute('class');
+      if (classes) {
+        const classList = classes.split(' ');
+        return classList[0]; // Return the first class
+      }
+      return null;
+    });
 
-     // fs.writeFileSync("items.json", JSON.stringify(items));
-   
-      await browser.close();
-    })();
+
+    const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
+    console.log(parentId);
+    const items = await scrapeInfiniteScrollItems(page, parseInt(listingCountClass), parentId, sectionNameClass);
+    // Use the class in your items query
+
+
+    console.log(items);
+    res.send({ parentId: parentId, items: items })
+
+
+
+
+    // fs.writeFileSync("items.json", JSON.stringify(items));
+
+    await browser.close();
+  })();
 
 
 });
 
-app.get('/getEventBySearchStubHUb/:query',async (req, res) => {
-  const query=req.params.query;
+app.get('/getEventBySearchStubHUb/:query', async (req, res) => {
+  const query = req.params.query;
   const replacedString = query.replace(/ /g, "%20");
 
-      const browser = await puppeteer.launch({
-        headless: true,
-      });
-    
-      const page = await browser.newPage();
-      await page.goto(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`);
-      try {
+  const browser = await puppeteer.launch({
+    headless: true,
+  });
 
-        await page.waitForTimeout(8000);
+  const page = await browser.newPage();
+  await page.goto(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`);
+  try {
 
-        //*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul
-        const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
+    await page.waitForTimeout(8000);
 
-        var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
+    //*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul
+    const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
 
-        console.log(sectionName);
-        if(sectionName.length==0){
-          console.log('ok');
-          sectionName = await page.$x(xpathExpression);
-        }
-      
-        const sectionNameClass = await sectionName[0].evaluate(element => {
-          const classes = element.getAttribute('class');
-          if (classes) {
-            const classList = classes.split(' ');
-            return classes; // Return the first class
-          }
-          return null;
-        });
-        res.json(sectionNameClass)
-        await browser.close();
-      } catch (error) {
+    var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
 
-        console.error("Error while waiting for XPath:", error);
-        const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
+    console.log(sectionName);
+    if (sectionName.length == 0) {
+      console.log('ok');
+      sectionName = await page.$x(xpathExpression);
+    }
 
-        var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
-
-        console.log(sectionName);
+    const sectionNameClass = await sectionName[0].evaluate(element => {
+      const classes = element.getAttribute('class');
+      if (classes) {
+        const classList = classes.split(' ');
+        return classes; // Return the first class
       }
-      
+      return null;
+    });
+    res.json(sectionNameClass)
+    await browser.close();
+  } catch (error) {
 
-     
-       // const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
-  
-      //  const items = await scrapeInfiniteScrollItems(page, 1,"",sectionNameClass);
-        // Use the class in your items query
-        
-    
-     //  res.send({parentId:parentId , items:items})
-    
-      
-     
+    console.error("Error while waiting for XPath:", error);
+    const xpathExpression = '//*[@id="app"]/div[1]/div[4]/div[2]/div[1]/div[1]/div/div[3]/div[1]/div[3]/ul';
 
-     // fs.writeFileSync("items.json", JSON.stringify(items));
-   
-     // await browser.close();
+    var sectionName = await page.$x(xpathExpression); // Increased timeout to 60 seconds
+
+    console.log(sectionName);
+  }
+
+
+
+  // const parentId = await getParentId(page, "stubhub-event-detail-listings-grid");
+
+  //  const items = await scrapeInfiniteScrollItems(page, 1,"",sectionNameClass);
+  // Use the class in your items query
+
+
+  //  res.send({parentId:parentId , items:items})
+
+
+
+
+  // fs.writeFileSync("items.json", JSON.stringify(items));
+
+  // await browser.close();
 
 
 });
@@ -270,12 +270,12 @@ app.get('/stubhubSearch/:query', async (req, res) => {
 
     const jsonData = $('script[id="index-data"]').first().html();
     const toJson = JSON.parse(jsonData);     // Filter items to extract only the URLs
-     const urls = toJson.eventGrids['2'].items.map(item => item.url);
+    const urls = toJson.eventGrids['2'].items.map(item => item.url);
 
     res.json({
-      json:toJson.eventGrids['2'],
-      succes:true,
-      data : urls
+      json: toJson.eventGrids['2'],
+      succes: true,
+      data: urls
     });
   } catch (error) {
     console.error(error);
@@ -285,15 +285,15 @@ app.get('/stubhubSearch/:query', async (req, res) => {
 
 
 app.post('/stubhubSearchTickets', async (req, res) => {
-  const eventURL=req.body.url;
-  const CurrentPage =req.body.CurrentPage;
+  const eventURL = req.body.url;
+  const CurrentPage = req.body.CurrentPage;
   const PageSize = req.body.PageSize;
   const Quantity = req.body.Quantity;
   const ShowAllTickets = req.body.ShowAllTickets;
 
   console.log(eventURL);
   try {
-    const response = await axios.post(`${eventURL}`,{CurrentPage,PageSize,Quantity,ShowAllTickets}, {
+    const response = await axios.post(`${eventURL}`, { CurrentPage, PageSize, Quantity, ShowAllTickets }, {
       rejectUnauthorized: false,
       proxy: {
         host: 'brd.superproxy.io',
@@ -306,7 +306,7 @@ app.post('/stubhubSearchTickets', async (req, res) => {
     });
 
     const html = response.data;
-       // Filter items to extract only the URLs
+    // Filter items to extract only the URLs
     res.json(html);
   } catch (error) {
     console.error(error);
@@ -338,17 +338,17 @@ app.get('/vividseatsSearch/:query', async (req, res) => {
     const toJson = JSON.parse(jsonData);     // Filter items to extract only the URLs
 
 
-    var baseObjs=toJson.props.pageProps.initialProductionListData;
-    var baseObjs2=toJson.props.pageProps.initialAllProductionListData;
-    baseObjs ? baseObjs= baseObjs: baseObjs= baseObjs2
+    var baseObjs = toJson.props.pageProps.initialProductionListData;
+    var baseObjs2 = toJson.props.pageProps.initialAllProductionListData;
+    baseObjs ? baseObjs = baseObjs : baseObjs = baseObjs2
 
-     var urls = baseObjs?.items.map(item => item.id);
-   
+    var urls = baseObjs?.items.map(item => item.id);
+
     console.log(urls);
     res.json({
-      json:baseObjs,
-      succes:true,
-      data : urls
+      json: baseObjs,
+      succes: true,
+      data: urls
     });
   } catch (error) {
     console.error(error);
@@ -358,7 +358,7 @@ app.get('/vividseatsSearch/:query', async (req, res) => {
 
 
 app.get('/vividseatsSearchTickets/:id', async (req, res) => {
-  const eventId=req.params.id;
+  const eventId = req.params.id;
 
   try {
     const response = await axios.get(`https://www.vividseats.com/hermes/api/v1/listings?productionId=${eventId}&includeIpAddress=true`, {
@@ -374,7 +374,7 @@ app.get('/vividseatsSearchTickets/:id', async (req, res) => {
     });
 
     const html = response.data;
-       // Filter items to extract only the URLs
+    // Filter items to extract only the URLs
     res.json(html);
   } catch (error) {
     console.error(error);
@@ -385,7 +385,7 @@ app.get('/vividseatsSearchTickets/:id', async (req, res) => {
 
 
 app.get('/gametimeSearch/:query', async (req, res) => {
-  const query=req.params.query;
+  const query = req.params.query;
 
   try {
     const response = await axios.get(`https://mobile.gametime.co/v1/search?q=${query}&lat=40.714353&lon=-74.005973&zSearch03=true&zSearch05=alg_v1`, {
@@ -401,18 +401,67 @@ app.get('/gametimeSearch/:query', async (req, res) => {
     });
 
     const html = response.data;
-       // Filter items to extract only the URLs
+    // Filter items to extract only the URLs
     res.json(html);
   } catch (error) {
     console.error(error);
     res.status(500).send('Internal Server Error');
   }
 });
+app.get('/eventsbyequipe/:id', async (req, res) => {
+  try {
+    const equipe = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${equipe}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  } catch {
+    const equipe = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${equipe}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  }
 
+});
+app.get('/performers/:name', async (req, res) => {
+  const name = req.params.name;
+
+  console.log(name);
+  let page = 1;
+  let performers = [];
+  let total = 0;
+  currentFetchs = 50;
+  const response = await axios.get(`https://api.seatgeek.com/2/performers?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${name}&per_page=50&page=${page}`);
+  performers = response.data.performers;
+  total = response.data.meta.total;
+  page = 2;
+  while (currentFetchs < total) {
+    page += 1;
+    let api = await axios.get(`https://api.seatgeek.com/2/performers?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${name}&per_page=50&page=${page}`);
+    performers = performers.concat(api.data.performers);
+    currentFetchs += 50;
+  }
+  const filteredPerformers = performers.filter(performer => performer.divisions !== null);
+  const sortedPerformers = filteredPerformers.sort((a, b) => {
+    const nameA = a.name.toUpperCase(); // Convert to uppercase to ensure case-insensitive sorting
+    const nameB = b.name.toUpperCase();
+
+    if (nameA < nameB) {
+      return -1; // Return a negative value for ascending order
+    } else if (nameA > nameB) {
+      return 1; // Return a positive value for ascending order
+    } else {
+      return 0; // Names are equal
+    }
+  });
+  return res.json({ performers: sortedPerformers, length: filteredPerformers.length });
+
+
+
+})
 app.post('/getTicketsGametimes', async (req, res) => {
-    const url = req.body.url;
-    console.log(url);
-//  const replacedString = query.replace(/ /g, "%20");
+  const url = req.body.url;
+  console.log(url);
+  //  const replacedString = query.replace(/ /g, "%20");
   try {
     const response = await axios.get(`${url}`, {
       rejectUnauthorized: false,
@@ -438,28 +487,28 @@ app.post('/getTicketsGametimes', async (req, res) => {
 
     // Extract the content of the third-to-last script tag
     const jsonData = thirdToLastScriptTag.html();
-   // const json = JSON.parse(jsonData);
+    // const json = JSON.parse(jsonData);
 
     const jsonDataStartIndex = jsonData.indexOf('{'); // Find the start index of the JSON object
     const jsonDataEndIndex = jsonData.lastIndexOf('}'); // Find the end index of the JSON object
-    
+
     if (jsonDataStartIndex !== -1 && jsonDataEndIndex !== -1) {
       const jsonDataString = jsonData.substring(jsonDataStartIndex, jsonDataEndIndex + 1);
-      
-    //  const unescapedJsonData = jsonDataString.replace(/\\"/g, '"'); // Replace escaped double quotes with unescaped double quotes
-     // const jsonDataParsed = JSON.stringify(jsonDataString); // Parse the unescaped JSON string
-      
+
+      //  const unescapedJsonData = jsonDataString.replace(/\\"/g, '"'); // Replace escaped double quotes with unescaped double quotes
+      // const jsonDataParsed = JSON.stringify(jsonDataString); // Parse the unescaped JSON string
+
       /*const baseObjs = jsonDataParsed.redux.pageProps.initialProductionListData; // Access the data you need
       const urls = baseObjs?.items.map(item => item.id);
       console.log(urls);*/
       const sanitizedData = jsonDataString
-      .replace(/\\u002F/g, '/') // Replace '\\u002F' with '/'
-      .replace(/undefined/g, '"undefined "');      
-      const problematicPart = jsonDataString.substring(180, 250); 
+        .replace(/\\u002F/g, '/') // Replace '\\u002F' with '/'
+        .replace(/undefined/g, '"undefined "');
+      const problematicPart = jsonDataString.substring(180, 250);
       console.log(problematicPart); // Output this to see what's around position 219
 
-     // const json = JSON.stringify(sanitizedData);
-  
+      // const json = JSON.stringify(sanitizedData);
+
 
 
       // Now you can work with jsonData
