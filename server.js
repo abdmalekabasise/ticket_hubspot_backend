@@ -483,7 +483,7 @@ app.post('/getTicketsGametimes', async (req, res) => {
 
     // Get the third-to-last script tag
     const scriptLength = scriptTags.length;
-    const thirdToLastScriptTag = scriptTags.eq(scriptLength - 3);
+    const thirdToLastScriptTag = scriptTags.eq(scriptLength - 5);
 
     // Extract the content of the third-to-last script tag
     const jsonData = thirdToLastScriptTag.html();
@@ -495,29 +495,17 @@ app.post('/getTicketsGametimes', async (req, res) => {
     if (jsonDataStartIndex !== -1 && jsonDataEndIndex !== -1) {
       const jsonDataString = jsonData.substring(jsonDataStartIndex, jsonDataEndIndex + 1);
 
-      //  const unescapedJsonData = jsonDataString.replace(/\\"/g, '"'); // Replace escaped double quotes with unescaped double quotes
-      // const jsonDataParsed = JSON.stringify(jsonDataString); // Parse the unescaped JSON string
-
-      /*const baseObjs = jsonDataParsed.redux.pageProps.initialProductionListData; // Access the data you need
-      const urls = baseObjs?.items.map(item => item.id);
-      console.log(urls);*/
       const sanitizedData = jsonDataString
         .replace(/\\u002F/g, '/') // Replace '\\u002F' with '/'
         .replace(/undefined/g, '"undefined "');
       const problematicPart = jsonDataString.substring(180, 250);
       console.log(problematicPart); // Output this to see what's around position 219
 
-      // const json = JSON.stringify(sanitizedData);
-
-
-
-      // Now you can work with jsonData
-      //console.log(json);
       const json = JSON.parse(sanitizedData);
       res.json(json)
     } else {
       console.error("Unable to find JSON object in the extracted data.");
-      res.status(500).send('Internal Server Error');
+      res.json(scriptLength)    
     }
   } catch (error) {
     console.error(error);
