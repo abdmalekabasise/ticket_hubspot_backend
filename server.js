@@ -251,6 +251,7 @@ app.get('/test2/:query', async (req, res) => {
 app.get('/stubhubSearch/:query', async (req, res) => {
   const query = req.params.query;
   const replacedString = query.replace(/ /g, "%20");
+
   try {
     const response = await axios.get(`https://www.stubhub.com/secure/search?q=${replacedString}&sellSearch=false`, {
       rejectUnauthorized: false,
@@ -342,13 +343,10 @@ app.get('/vividseatsSearch/:query', async (req, res) => {
     var baseObjs2 = toJson.props.pageProps.initialAllProductionListData;
     baseObjs ? baseObjs = baseObjs : baseObjs = baseObjs2
 
-    var urls = baseObjs?.items.map(item => item.id);
 
-    console.log(urls);
     res.json({
       json: baseObjs,
       succes: true,
-      data: urls
     });
   } catch (error) {
     console.error(error);
@@ -367,7 +365,7 @@ app.get('/vividseatsSearchTickets/:id', async (req, res) => {
         host: 'brd.superproxy.io',
         port: '22225',
         auth: {
-          username: 'brd-customer-hl_0d698af6-zone-unblocker',
+          username: 'brd-customer-hl_0d698af6-zone-unblocker-country-us',
           password: '4rzyw981zlb7'
         }
       }
@@ -417,6 +415,20 @@ app.get('/eventsbyequipe/:id', async (req, res) => {
   } catch {
     const equipe = req.params.id;
     const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${equipe}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  }
+
+});
+app.get('/eventsbytaxonomies/:id', async (req, res) => {
+  try {
+    const taxonomie = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&taxonomies.name=${taxonomie}&per_page=50`);
+    console.log(response);
+    return res.json(response.data);
+  } catch {
+    const equipe = req.params.id;
+    const response = await axios.get(`https://api.seatgeek.com/2/events?client_id=Mzk1MDc3NTh8MTcwNTU5NjQ3Ny44MzQyOTg0&q=${taxonomie}&per_page=50`);
     console.log(response);
     return res.json(response.data);
   }
