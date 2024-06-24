@@ -10,11 +10,17 @@ const SBR_WS_ENDPOINT = `wss://${AUTH}@brd.superproxy.io:9222`;
 const http = require('http');
 const axios = require('axios-https-proxy-fix');
 const cheerio = require('cheerio');
+const fetch = require('node-fetch');
+const { Buffer } = require('buffer');
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 
 app.use(bodyParser.json());
 app.use(cors());
+
+const accountSID = process.env.ACCOUNT_SID;
+const authToken = process.env.AUTH_TOKEN;
 
 
 const scrapeInfiniteScrollItems = async (page, itemTargetCount, parentId, elementClass) => {
@@ -524,6 +530,36 @@ app.post('/getTicketsGametimes', async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+app.get('/getEventPartnerize/:id', async (req, res) => {
+  const id = req.params.id;
+  const url = `https://api.impact.com/Mediapartners/IRAkwWeh8C8M4751942U2mPnBRZN4HtzL1/Catalogs/7904/Items/product_7904_${id}`;
+  const auth = Buffer.from(`${accountSID}:${authToken}`).toString('base64');
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept' : 'application/json'
+
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      res.json(data);
+      console.log('Data:', JSON.stringify(data, null, 2));
+    } else {
+      console.error('Failed to fetch data:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+
+
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
