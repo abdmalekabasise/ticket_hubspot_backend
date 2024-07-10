@@ -561,7 +561,7 @@ app.get('/getEventPartnerize/:id', async (req, res) => {
 });
 
 app.get('/getUnderoneoo', async (req, res) => {
-  const url = `https://api.impact.com/Mediapartners/IRAkwWeh8C8M4751942U2mPnBRZN4HtzL1/Catalogs/7904/Items?query=(CurrentPrice < 100.00 AND CurrentPrice > 40.00)&pagesize=30 `;
+  const url = `https://api.impact.com/Mediapartners/IRAkwWeh8C8M4751942U2mPnBRZN4HtzL1/Catalogs/7904/Items?query=(CurrentPrice < 100.00 AND CurrentPrice > 40.00)&pagesize=100 `;
   const auth = Buffer.from(`${accountSID}:${authToken}`).toString('base64');
 
   try {
