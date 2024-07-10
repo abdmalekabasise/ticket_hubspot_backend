@@ -560,6 +560,34 @@ app.get('/getEventPartnerize/:id', async (req, res) => {
 
 });
 
+app.get('/getUnderoneoo', async (req, res) => {
+  const url = `https://api.impact.com/Mediapartners/IRAkwWeh8C8M4751942U2mPnBRZN4HtzL1/Catalogs/7904/Items?query=(CurrentPrice < 100.00 AND CurrentPrice > 40.00)&pagesize=30 `;
+  const auth = Buffer.from(`${accountSID}:${authToken}`).toString('base64');
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept' : 'application/json'
+
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      res.json(data);
+      console.log('Data:', JSON.stringify(data, null, 2));
+    } else {
+      console.error('Failed to fetch data:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+
+
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
