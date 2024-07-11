@@ -254,8 +254,11 @@ app.get('/test2/:query', async (req, res) => {
 });
 
 
-app.get('/stubhubSearch/:query', async (req, res) => {
+app.get('/stubhubSearch/:query/:createdat/:venueCityParam', async (req, res) => {
   const query = req.params.query;
+  const createdat = req.params.createdat;
+  const venueCityParam = req.params.venueCityParam;
+
   const replacedString = query.replace(/ /g, "%20");
 
   try {
@@ -279,8 +282,46 @@ app.get('/stubhubSearch/:query', async (req, res) => {
     const toJson = JSON.parse(jsonData);     // Filter items to extract only the URLs
     const urls = toJson.eventGrids['2'].items.map(item => item.url);
 
+    const items = toJson.eventGrids['2'].items.filter(item => {
+      // Destructure the necessary properties from the item
+      const { formattedDate, dayOfWeek, venueCity } = item;
+    console.log(venueCity);
+      // Get the current year
+      const currentYear = new Date().getFullYear();
+    
+      // Map month abbreviation to month number
+      const monthMap = {
+        "Jan": 0, "Feb": 1, "Mar": 2, "Apr": 3, "May": 4, "Jun": 5,
+        "Jul": 6, "Aug": 7, "Sep": 8, "Oct": 9, "Nov": 10, "Dec": 11
+      };
+    
+      // Extract month and day from formattedDate
+      const [monthAbbreviation, dayString] = formattedDate.split(" ");
+    
+      // Get the month number from the abbreviation
+      const month = monthMap[monthAbbreviation];
+    
+      // Parse day as a number
+      const day = parseInt(dayString, 10);
+    
+      // Construct the date object with the current year, month, and day
+      const date = new Date(currentYear, month, day);
+    
+      // Add one day to the date
+      date.setDate(date.getDate() + 1);
+    
+      // Get the ISO string representation of the date
+      const isoDateString = date.toISOString().split('T')[0];
+    
+      // Return true if isoDateString is "2024-03-02", otherwise false
+
+      return isoDateString === createdat && venueCity === venueCityParam;
+    }); 
+
+
+
     res.json({
-      json: toJson.eventGrids['2'],
+      json: {items},
       succes: true,
       data: urls
     });
