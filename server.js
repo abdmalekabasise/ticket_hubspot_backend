@@ -322,6 +322,7 @@ app.get('/stubhubSearch/:query/:createdat/:venueCityParam', async (req, res) => 
 
     res.json({
       json: {items},
+      json1: toJson.eventGrids['2'],
       succes: true,
       data: urls
     });
