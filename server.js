@@ -305,14 +305,14 @@ app.get('/stubhubSearch/:query/:createdat/:venueCityParam', async (req, res) => 
     
       // Return true if isoDateString is "2024-03-02", otherwise false
 
-      return formattedDate === formatDate(createdat) && venueCity === venueCityParam;
+      return formattedDate === formatDate(createdat) && venueCityParam.includes(venueCity);
     }); 
 
 
 
     res.json({
       json: {items},
-
+      json1:toJson.eventGrids['2'],
       succes: true,
       data: urls
     });
