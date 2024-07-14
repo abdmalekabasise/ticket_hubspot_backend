@@ -254,10 +254,12 @@ app.get('/test2/:query', async (req, res) => {
 });
 
 
-app.get('/stubhubSearch/:query/:createdat/:venueCityParam', async (req, res) => {
+app.get('/stubhubSearch/:query/:createdat/:venueCityParam/:venueNameParam', async (req, res) => {
   const query = req.params.query;
   const createdat = req.params.createdat;
   const venueCityParam = req.params.venueCityParam;
+  const venueNameParam = req.params.venueNameParam;
+
 
   const replacedString = query.replace(/ /g, "%20");
 
@@ -300,12 +302,12 @@ app.get('/stubhubSearch/:query/:createdat/:venueCityParam', async (req, res) => 
 
     const items = toJson.eventGrids['2'].items.filter(item => {
       // Destructure the necessary properties from the item
-      const { formattedDate, dayOfWeek, venueCity } = item;
+      const { formattedDate, venueName, venueCity } = item;
     
     
       // Return true if isoDateString is "2024-03-02", otherwise false
 
-      return formattedDate === formatDate(createdat) && venueCityParam.includes(venueCity);
+      return formattedDate === formatDate(createdat) && (venueCityParam.includes(venueCity) ||venueNameParam.includes(venueName) );
     }); 
 
 
